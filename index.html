@@ -58,6 +58,7 @@
     <section id="frameSection" class="card" hidden>
       <h2>Sampled frames</h2>
       <p class="note">Each thumbnail is a frame from the chosen range. The score compares it with the prior sampled frame.</p>
+      <button id="contactSheet" type="button">Download contact sheet (PNG)</button>
       <div id="frames" class="frames"></div>
     </section>
   </main>
@@ -75,8 +76,10 @@
       const results = document.querySelector('#results');
       const frameSection = document.querySelector('#frameSection');
       const frames = document.querySelector('#frames');
+      const contactSheet = document.querySelector('#contactSheet');
       const canvas = document.querySelector('#timeline');
       let objectUrl = null;
+      let latestSamples = [];
       const formatTime = seconds => {
         const minutes = Math.floor(seconds / 60);
         const remainder = seconds - minutes * 60;
@@ -129,6 +132,34 @@
           button.append(image, caption); button.addEventListener('click', () => { video.currentTime = sample.time; video.focus(); }); frames.append(button);
         });
       };
+      const loadImage = source => new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('A sampled thumbnail could not be added to the contact sheet.'));
+        image.src = source;
+      });
+      const downloadContactSheet = async samples => {
+        const columns = 4; const padding = 20; const gap = 12; const cellWidth = 260; const imageHeight = 146; const captionHeight = 42; const headerHeight = 46;
+        const rows = Math.ceil(samples.length / columns); const sheet = document.createElement('canvas');
+        sheet.width = padding * 2 + columns * cellWidth + (columns - 1) * gap;
+        sheet.height = headerHeight + padding + rows * (imageHeight + captionHeight) + (rows - 1) * gap + padding;
+        const context = sheet.getContext('2d'); context.fillStyle = '#10131a'; context.fillRect(0, 0, sheet.width, sheet.height);
+        context.fillStyle = '#edf2ff'; context.font = 'bold 20px system-ui'; context.fillText(`Creepy Cannon sampled frames · ${samples.length} frames`, padding, 28);
+        const images = await Promise.all(samples.map(sample => loadImage(sample.image)));
+        samples.forEach((sample, index) => {
+          const column = index % columns; const row = Math.floor(index / columns); const x = padding + column * (cellWidth + gap); const y = headerHeight + padding + row * (imageHeight + captionHeight + gap);
+          context.fillStyle = sample.hot ? '#ff9d66' : '#313949'; context.fillRect(x - 1, y - 1, cellWidth + 2, imageHeight + captionHeight + 2);
+          context.drawImage(images[index], x, y, cellWidth, imageHeight);
+          context.fillStyle = '#191e29'; context.fillRect(x, y + imageHeight, cellWidth, captionHeight);
+          context.fillStyle = '#edf2ff'; context.font = 'bold 14px system-ui'; context.fillText(formatTime(sample.time), x + 9, y + imageHeight + 18);
+          context.fillStyle = '#aeb9cf'; context.font = '12px system-ui'; context.fillText(`Change score: ${sample.score.toFixed(3)}`, x + 9, y + imageHeight + 34);
+        });
+        const blob = await new Promise(resolve => sheet.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('The browser could not create the contact sheet image.');
+        const link = document.createElement('a'); const downloadUrl = URL.createObjectURL(blob);
+        link.href = downloadUrl; link.download = `creepy-cannon-frames-${start.value}-to-${end.value}.png`; link.click();
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+      };
       file.addEventListener('change', () => {
         const selected = file.files[0]; if (!selected) return;
         if (objectUrl) URL.revokeObjectURL(objectUrl); objectUrl = URL.createObjectURL(selected); video.src = objectUrl; analyze.disabled = true; results.hidden = true; frameSection.hidden = true;
@@ -144,8 +175,15 @@
         try {
           for (let index = 0; index < times.length; index++) { setStatus(`Sampling frame ${index + 1} of ${times.length} at ${formatTime(times[index])}…`); await waitForSeek(times[index]); const frame = captureFrame(); const score = difference(frame.pixels, previousPixels); previousPixels = frame.pixels; samples.push({ time:times[index], image:frame.image, score, hot:score >= limit }); }
           const peak = Math.max(...samples.map(sample => sample.score)); document.querySelector('#sampleCount').textContent = samples.length; document.querySelector('#peakChange').textContent = peak.toFixed(3); document.querySelector('#hotCount').textContent = samples.filter(sample => sample.hot).length;
-          results.hidden = false; frameSection.hidden = false; showFrames(samples); drawTimeline(samples); setStatus(`Finished: ${samples.length} frames sampled from ${formatTime(rangeStart)} to ${formatTime(rangeEnd)}.`); video.currentTime = priorTime;
+          latestSamples = samples; results.hidden = false; frameSection.hidden = false; showFrames(samples); drawTimeline(samples); setStatus(`Finished: ${samples.length} frames sampled from ${formatTime(rangeStart)} to ${formatTime(rangeEnd)}.`); video.currentTime = priorTime;
         } catch (error) { setStatus(error.message, true); } finally { analyze.disabled = false; }
+      });
+      contactSheet.addEventListener('click', async () => {
+        if (!latestSamples.length) return;
+        contactSheet.disabled = true;
+        try { setStatus('Creating your contact-sheet image…'); await downloadContactSheet(latestSamples); setStatus('Contact sheet downloaded as a PNG.'); }
+        catch (error) { setStatus(error.message, true); }
+        finally { contactSheet.disabled = false; }
       });
       window.addEventListener('resize', () => { if (!results.hidden) { /* Redrawn on the next analysis to preserve the captured result. */ } });
     })();
