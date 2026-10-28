@@ -1,185 +1,154 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#111827">
-<title>Creepy Cannon Offline Analyzer</title>
-<style>
-:root{color-scheme:dark;--bg:#0b1020;--panel:#151d31;--line:#2b3650;--text:#f3f6ff;--muted:#aab5cf;--accent:#8ab4ff;--good:#a8e6bf}
-*{box-sizing:border-box}
-body{margin:0;background:linear-gradient(180deg,#111a31,#0b1020 360px);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-main{max-width:760px;margin:auto;padding:20px 14px 48px}
-header{padding:10px 2px 18px}
-h1{font-size:1.55rem;line-height:1.2;margin:0 0 8px}
-h2{font-size:1.08rem;margin:0 0 12px}
-p{margin:7px 0;color:var(--muted)}
-.card{background:rgba(21,29,49,.96);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 8px 24px #0002}
-label{display:block;font-weight:650;margin:12px 0 6px}
-input,select,button{font:inherit}
-input[type=file],input[type=number],select{width:100%;padding:12px;background:#0c1428;color:var(--text);border:1px solid #3a4868;border-radius:11px}
-input[type=range]{width:100%;accent-color:var(--accent)}
-button{border:0;border-radius:12px;padding:13px 16px;background:var(--accent);color:#071329;font-weight:750;width:100%;margin-top:12px}
-button:disabled{opacity:.45}
-.secondary{background:#27344f;color:var(--text);border:1px solid #425171}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.stat{background:#0c1428;border:1px solid var(--line);border-radius:12px;padding:12px}
-.stat strong{display:block;font-size:1.2rem}
-.small{font-size:.88rem;color:var(--muted)}
-#status{white-space:pre-wrap;color:var(--good);font-size:.94rem}
-#preview{width:100%;max-height:360px;object-fit:contain;background:#05070d;border-radius:12px;margin-top:10px}
-#results{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:.9rem}
-th,td{text-align:left;padding:9px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
-th{color:var(--muted)}
-.pill{display:inline-block;padding:4px 9px;border-radius:99px;background:#263657;color:#dbe8ff;font-size:.82rem}
-footer{font-size:.85rem;color:var(--muted);padding:12px 2px}
-@media(min-width:600px){.statgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Creepy Cannon — Offline Video Analyzer</title>
+  <style>
+    :root { color-scheme: dark; --bg:#10131a; --panel:#191e29; --line:#313949; --text:#edf2ff; --muted:#aeb9cf; --accent:#7cc4ff; --hot:#ff9d66; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui,Segoe UI,sans-serif; }
+    main { width:min(1180px,calc(100% - 32px)); margin:36px auto 64px; } h1 { margin:0; } h2 { margin:0 0 12px; font-size:1.25rem; }
+    .lede,.note { color:var(--muted); } .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; margin-top:18px; }
+    .controls { display:grid; grid-template-columns:repeat(4,minmax(120px,1fr)) auto; gap:14px; align-items:end; } label { display:grid; gap:6px; color:var(--muted); font-size:.9rem; }
+    input,button { font:inherit; border-radius:8px; padding:9px 10px; } input { color:var(--text); background:#0d1118; border:1px solid var(--line); width:100%; }
+    button { cursor:pointer; color:#071522; background:var(--accent); border:1px solid var(--accent); font-weight:700; } button:disabled { opacity:.55; cursor:wait; }
+    #video { display:block; width:min(100%,760px); max-height:52vh; margin:16px auto 0; background:#06080c; border-radius:10px; }
+    #status { min-height:1.5em; margin:12px 0 0; color:var(--muted); } #status.error { color:#ffadad; } #results[hidden] { display:none; }
+    .summary { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:14px 0; } .stat { padding:12px; background:#111620; border-radius:9px; } .stat strong { display:block; color:var(--accent); font-size:1.3rem; }
+    #timeline { width:100%; height:170px; display:block; background:#0d1118; border-radius:10px; border:1px solid var(--line); }
+    .frames { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; } .frame { padding:0; overflow:hidden; background:#101621; border:1px solid var(--line); color:var(--text); text-align:left; }
+    .frame:hover,.frame:focus { outline:2px solid var(--accent); outline-offset:2px; } .frame.hot { border-color:var(--hot); } .frame img { width:100%; aspect-ratio:16/9; display:block; object-fit:contain; background:#05070a; }
+    .caption { padding:8px 9px; font-size:.83rem; } .caption span { color:var(--muted); display:block; font-weight:400; } .legend { color:var(--muted); font-size:.9rem; margin:8px 0 0; }
+    @media (max-width:760px) { main { width:min(100% - 20px,1180px); margin-top:20px; } .controls { grid-template-columns:repeat(2,1fr); } .controls button { grid-column:span 2; } .summary { grid-template-columns:1fr; } }
+  </style>
 </head>
 <body>
-<main>
-<header>
-  <div class="pill">Offline video analysis</div>
-  <h1>Creepy Cannon Analyzer</h1>
-  <p>Analyze a saved recording in Safari. The video stays on your device; this page does not upload it anywhere.</p>
-</header>
-
-<section class="card">
-<h2>1. Choose your recording</h2>
-<label for="videoFile">Video file (MP4 or MOV)</label>
-<input id="videoFile" type="file" accept="video/mp4,video/quicktime,video/*">
-<div id="fileInfo" class="small">No video selected.</div>
-<video id="preview" controls playsinline hidden></video>
-<div class="row">
-  <div>
-    <label for="interval">Sample every (seconds)</label>
-    <select id="interval">
-      <option value="0.25">0.25 — detailed, slower</option>
-      <option value="0.5" selected>0.5 — balanced</option>
-      <option value="1">1 — faster</option>
-      <option value="2">2 — quickest</option>
-    </select>
-  </div>
-  <div>
-    <label for="sensitivity">Change sensitivity</label>
-    <select id="sensitivity">
-      <option value="8">Low (fewer changes)</option>
-      <option value="14" selected>Medium</option>
-      <option value="22">High (more changes)</option>
-    </select>
-  </div>
-</div>
-<label for="startAt">Start at (seconds)</label>
-<input id="startAt" type="number" min="0" step="0.5" value="0">
-<label for="endAt">End at (seconds; blank = end)</label>
-<input id="endAt" type="number" min="0" step="0.5" placeholder="Video end">
-<p class="small">Tip: For a long recording, analyze a smaller time range first to keep Safari responsive.</p>
-<button id="analyze" disabled>Analyze recording</button>
-<div id="status" role="status" aria-live="polite"></div>
-</section>
-
-<section class="card" id="summaryCard" hidden>
-<h2>2. Analysis summary</h2>
-<div class="statgrid">
- <div class="stat"><span class="small">Duration</span><strong id="durationStat">—</strong></div>
- <div class="stat"><span class="small">Samples checked</span><strong id="samplesStat">—</strong></div>
- <div class="stat"><span class="small">Biggest visual change</span><strong id="biggestStat">—</strong></div>
- <div class="stat"><span class="small">High-change moments</span><strong id="eventsStat">—</strong></div>
-</div>
-<p id="summaryNote" class="small"></p>
-<button id="downloadCsv" class="secondary">Export results as CSV</button>
-</section>
-
-<section class="card" id="resultsCard" hidden>
-<h2>3. Timeline</h2>
-<p class="small">“Change score” estimates how much the sampled image differs from the previous sample. High values can indicate a scene transition, animation, or gameplay movement—not necessarily a round ending.</p>
-<div id="results"></div>
-</section>
-
-<footer>
-This is an offline visual-change analyzer, not a gameplay bot. It does not tap, fire, or control the game. Results depend on video quality and sampling interval. If Safari runs low on memory, choose a shorter time range or a larger interval.
-</footer>
-</main>
-<canvas id="canvas" width="240" height="320" hidden></canvas>
-<script>
-(() => {
- const $ = id => document.getElementById(id);
- const fileInput=$('videoFile'), video=$('preview'), canvas=$('canvas'), ctx=canvas.getContext('2d',{willReadFrequently:true});
- let objectUrl=null, rows=[], running=false;
- const fmt=t=>{if(!Number.isFinite(t))return '—';const m=Math.floor(t/60),s=(t%60).toFixed(2).padStart(5,'0');return `${m}:${s}`};
- function setStatus(s){$('status').textContent=s}
- function waitEvent(el,event){return new Promise((resolve,reject)=>{const ok=()=>{clean();resolve()};const bad=()=>{clean();reject(new Error('The browser could not read this video. Try an MP4 or MOV file.'))};const clean=()=>{el.removeEventListener(event,ok);el.removeEventListener('error',bad)};el.addEventListener(event,ok,{once:true});el.addEventListener('error',bad,{once:true})})}
- fileInput.addEventListener('change', async()=>{
-  rows=[];$('summaryCard').hidden=true;$('resultsCard').hidden=true;$('analyze').disabled=true;
-  if(objectUrl)URL.revokeObjectURL(objectUrl);
-  const file=fileInput.files?.[0];if(!file){$('fileInfo').textContent='No video selected.';video.hidden=true;return}
-  objectUrl=URL.createObjectURL(file);video.src=objectUrl;video.hidden=false;
-  $('fileInfo').textContent=`${file.name} · ${(file.size/1024/1024).toFixed(1)} MB`;
-  setStatus('Loading video metadata…');
-  try{if(video.readyState<1)await waitEvent(video,'loadedmetadata');$('fileInfo').textContent+=` · ${fmt(video.duration)} long`; $('endAt').placeholder=`${video.duration.toFixed(1)} (video end)`;$('startAt').max=video.duration;$('endAt').max=video.duration;$('analyze').disabled=false;setStatus('Ready. Choose a time range and analyze.')}
-  catch(e){setStatus(e.message)}
- });
- async function seek(t){
-  if(Math.abs(video.currentTime-t)<0.025 && video.readyState>=2)return;
-  const p=waitEvent(video,'seeked');video.currentTime=t;await p;
- }
- function getGray(){
-  const w=canvas.width,h=canvas.height;
-  ctx.drawImage(video,0,0,w,h);
-  const d=ctx.getImageData(0,0,w,h).data, gray=new Uint8Array(w*h);
-  for(let i=0,j=0;i<d.length;i+=4,j++)gray[j]=(d[i]*3+d[i+1]*6+d[i+2])/10;
-  return gray;
- }
- function difference(a,b){let sum=0;for(let i=0;i<a.length;i++)sum+=Math.abs(a[i]-b[i]);return sum/a.length}
- function csvEscape(v){return '"'+String(v).replaceAll('"','""')+'"'}
- $('analyze').addEventListener('click', async()=>{
-  if(running||!video.duration)return;
-  running=true;$('analyze').disabled=true;$('summaryCard').hidden=true;$('resultsCard').hidden=true;rows=[];
-  try{
-   const step=Number($('interval').value), sens=Number($('sensitivity').value);
-   const start=Math.max(0,Number($('startAt').value)||0);
-   const endInput=$('endAt').value.trim();const end=Math.min(video.duration,endInput===''?video.duration:Number(endInput));
-   if(end<=start)throw new Error('End time must be after start time.');
-   const count=Math.floor((end-start)/step)+1;
-   if(count>1800)throw new Error('That range creates too many samples. Choose a shorter range or larger interval (maximum 1,800 samples).');
-   canvas.width=240;canvas.height=320;
-   let previous=null;
-   for(let i=0;i<count;i++){
-    const t=Math.min(end,start+i*step);
-    await seek(t);
-    const gray=getGray();
-    const score=previous?difference(previous,gray):0;
-    rows.push({seconds:Number(t.toFixed(3)),timestamp:fmt(t),change_score:Number(score.toFixed(3)),high_change:score>=sens?'YES':'NO'});
-    previous=gray;
-    if(i%4===0||i===count-1){setStatus(`Analyzing… ${i+1} / ${count} samples (${Math.round((i+1)/count*100)}%)`);await new Promise(r=>setTimeout(r,0))}
-   }
-   const biggest=rows.reduce((best,r)=>r.change_score>best.change_score?r:best,rows[0]);
-   const events=rows.filter(r=>r.change_score>=sens);
-   $('durationStat').textContent=fmt(end-start);$('samplesStat').textContent=rows.length.toLocaleString();
-   $('biggestStat').textContent=`${biggest.timestamp} (${biggest.change_score})`;$('eventsStat').textContent=events.length.toLocaleString();
-   $('summaryNote').textContent=`Sensitivity threshold: ${sens}. These are visual-change estimates, not confirmed round transitions.`;
-   $('summaryCard').hidden=false;$('resultsCard').hidden=false;renderTable(rows);
-   setStatus('Analysis complete. You can export the timeline as CSV.');
-  }catch(e){setStatus(e.message||String(e))}
-  finally{running=false;$('analyze').disabled=false}
- });
- function renderTable(data){
-  const show=data.length>240?data.filter((r,i)=>i%Math.ceil(data.length/240)===0||r.high_change==='YES'):data;
-  let html='<table><thead><tr><th>Time</th><th>Change score</th><th>High change?</th></tr></thead><tbody>';
-  for(const r of show)html+=`<tr><td>${r.timestamp}</td><td>${r.change_score.toFixed(3)}</td><td>${r.high_change}</td></tr>`;
-  html+='</tbody></table>';
-  if(show.length<data.length)html+=`<p class="small">Showing ${show.length} representative rows of ${data.length}. The CSV contains every sample.</p>`;
-  $('results').innerHTML=html;
- }
- $('downloadCsv').addEventListener('click',()=>{
-  if(!rows.length)return;
-  const lines=['seconds,timestamp,change_score,high_change',...rows.map(r=>[r.seconds,r.timestamp,r.change_score,r.high_change].map(csvEscape).join(','))];
-  const blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='creepy-cannon-analysis.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
- });
-})();
-</script>
+  <main>
+    <h1>Creepy Cannon video analyzer</h1>
+    <p class="lede">Offline recorded-video inspection. Your selected video stays in this browser; nothing is uploaded or controlled.</p>
+    <section class="card">
+      <h2>1. Load a recording</h2>
+      <input id="file" type="file" accept="video/*" aria-label="Recorded video file">
+      <video id="video" controls playsinline></video>
+      <p id="videoInfo" class="note">Choose a local video to enable analysis.</p>
+    </section>
+    <section class="card">
+      <h2>2. Pick a range</h2>
+      <div class="controls">
+        <label>Start (seconds)<input id="start" type="number" min="0" step="0.1" value="142"></label>
+        <label>End (seconds)<input id="end" type="number" min="0" step="0.1" value="145"></label>
+        <label>Sample every (seconds)<input id="step" type="number" min="0.1" step="0.1" value="0.5"></label>
+        <label>Highlight change at<input id="threshold" type="number" min="0" step="0.1" value="15"></label>
+        <button id="analyze" type="button" disabled>Analyze frames</button>
+      </div>
+      <p class="note">Defaults cover 2:22–2:25. The analyzer captures the start and end frame. Ranges are limited to 150 samples to keep the page responsive.</p>
+      <p id="status" role="status"></p>
+    </section>
+    <section id="results" class="card" hidden>
+      <h2>Analysis summary</h2>
+      <div class="summary">
+        <div class="stat"><strong id="sampleCount">0</strong>sampled frames</div>
+        <div class="stat"><strong id="peakChange">0</strong>largest change score</div>
+        <div class="stat"><strong id="hotCount">0</strong>highlighted changes</div>
+      </div>
+      <h2>Timeline</h2>
+      <canvas id="timeline" aria-label="Visual change timeline"></canvas>
+      <p class="legend">Orange points meet or exceed the selected highlight threshold. Click a thumbnail to jump the video to that time.</p>
+    </section>
+    <section id="frameSection" class="card" hidden>
+      <h2>Sampled frames</h2>
+      <p class="note">Each thumbnail is a frame from the chosen range. The score compares it with the prior sampled frame.</p>
+      <div id="frames" class="frames"></div>
+    </section>
+  </main>
+  <script>
+    (() => {
+      const file = document.querySelector('#file');
+      const video = document.querySelector('#video');
+      const start = document.querySelector('#start');
+      const end = document.querySelector('#end');
+      const step = document.querySelector('#step');
+      const threshold = document.querySelector('#threshold');
+      const analyze = document.querySelector('#analyze');
+      const status = document.querySelector('#status');
+      const videoInfo = document.querySelector('#videoInfo');
+      const results = document.querySelector('#results');
+      const frameSection = document.querySelector('#frameSection');
+      const frames = document.querySelector('#frames');
+      const canvas = document.querySelector('#timeline');
+      let objectUrl = null;
+      const formatTime = seconds => {
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds - minutes * 60;
+        return `${minutes}:${remainder.toFixed(2).padStart(5, '0')}`;
+      };
+      const setStatus = (message, isError = false) => { status.textContent = message; status.className = isError ? 'error' : ''; };
+      const waitForSeek = time => new Promise((resolve, reject) => {
+        const onSeeked = () => { cleanup(); resolve(); };
+        const onError = () => { cleanup(); reject(new Error('The browser could not read this point in the video.')); };
+        const cleanup = () => { video.removeEventListener('seeked', onSeeked); video.removeEventListener('error', onError); };
+        video.addEventListener('seeked', onSeeked, { once:true }); video.addEventListener('error', onError, { once:true });
+        video.currentTime = Math.min(Math.max(0, time), video.duration);
+      });
+      const captureFrame = () => {
+        const sourceWidth = video.videoWidth; const sourceHeight = video.videoHeight;
+        const thumbnail = document.createElement('canvas');
+        const width = Math.min(480, sourceWidth); const height = Math.round(width * sourceHeight / sourceWidth);
+        thumbnail.width = width; thumbnail.height = height;
+        thumbnail.getContext('2d', { willReadFrequently:true }).drawImage(video, 0, 0, width, height);
+        const sample = document.createElement('canvas'); sample.width = 64; sample.height = 36;
+        const sampleContext = sample.getContext('2d', { willReadFrequently:true });
+        sampleContext.drawImage(video, 0, 0, sample.width, sample.height);
+        return { image:thumbnail.toDataURL('image/jpeg', .82), pixels:sampleContext.getImageData(0, 0, sample.width, sample.height).data };
+      };
+      const difference = (current, previous) => {
+        if (!previous) return 0;
+        let total = 0;
+        for (let index = 0; index < current.length; index += 4) total += Math.abs(current[index] - previous[index]) + Math.abs(current[index + 1] - previous[index + 1]) + Math.abs(current[index + 2] - previous[index + 2]);
+        return total / ((current.length / 4) * 3);
+      };
+      const drawTimeline = samples => {
+        const pixelRatio = window.devicePixelRatio || 1; const bounds = canvas.getBoundingClientRect();
+        canvas.width = Math.max(1, Math.round(bounds.width * pixelRatio)); canvas.height = Math.round(170 * pixelRatio);
+        const context = canvas.getContext('2d'); context.scale(pixelRatio, pixelRatio);
+        const width = bounds.width; const height = 170; const max = Math.max(1, ...samples.map(sample => sample.score));
+        context.strokeStyle = '#313949'; context.lineWidth = 1;
+        for (let row = 1; row < 4; row++) { const y = 16 + (height - 40) * row / 3; context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke(); }
+        context.strokeStyle = '#7cc4ff'; context.lineWidth = 2; context.beginPath();
+        samples.forEach((sample, index) => { const x = samples.length === 1 ? width / 2 : 12 + index * (width - 24) / (samples.length - 1); const y = height - 24 - sample.score / max * (height - 48); index ? context.lineTo(x, y) : context.moveTo(x, y); }); context.stroke();
+        samples.forEach((sample, index) => { const x = samples.length === 1 ? width / 2 : 12 + index * (width - 24) / (samples.length - 1); const y = height - 24 - sample.score / max * (height - 48); context.fillStyle = sample.hot ? '#ff9d66' : '#7cc4ff'; context.beginPath(); context.arc(x, y, 3.5, 0, Math.PI * 2); context.fill(); });
+        context.fillStyle = '#aeb9cf'; context.font = '12px system-ui'; context.fillText(formatTime(samples[0].time), 8, height - 6); context.fillText(formatTime(samples.at(-1).time), Math.max(8, width - 62), height - 6); context.fillText(`max ${max.toFixed(1)}`, 8, 13);
+      };
+      const showFrames = samples => {
+        frames.replaceChildren();
+        samples.forEach(sample => {
+          const button = document.createElement('button'); button.type = 'button'; button.className = `frame${sample.hot ? ' hot' : ''}`; button.title = `Jump to ${formatTime(sample.time)}`;
+          const image = new Image(); image.src = sample.image; image.alt = `Frame at ${formatTime(sample.time)}`;
+          const caption = document.createElement('div'); caption.className = 'caption'; caption.textContent = formatTime(sample.time);
+          const score = document.createElement('span'); score.textContent = `Change score: ${sample.score.toFixed(3)}`; caption.append(score);
+          button.append(image, caption); button.addEventListener('click', () => { video.currentTime = sample.time; video.focus(); }); frames.append(button);
+        });
+      };
+      file.addEventListener('change', () => {
+        const selected = file.files[0]; if (!selected) return;
+        if (objectUrl) URL.revokeObjectURL(objectUrl); objectUrl = URL.createObjectURL(selected); video.src = objectUrl; analyze.disabled = true; results.hidden = true; frameSection.hidden = true;
+        videoInfo.textContent = `Loading ${selected.name}…`; setStatus('');
+      });
+      video.addEventListener('loadedmetadata', () => { const defaultEnd = Math.min(145, video.duration); const defaultStart = video.duration < 145 ? Math.max(0, defaultEnd - 3) : 142; end.max = video.duration; start.max = video.duration; end.value = defaultEnd.toFixed(1); start.value = defaultStart.toFixed(1); analyze.disabled = false; videoInfo.textContent = `${file.files[0].name} · ${formatTime(video.duration)} total duration`; });
+      analyze.addEventListener('click', async () => {
+        const rangeStart = Number(start.value); const rangeEnd = Number(end.value); const interval = Number(step.value); const limit = Number(threshold.value);
+        if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || !Number.isFinite(interval) || rangeStart < 0 || rangeEnd <= rangeStart || interval <= 0) return setStatus('Enter a valid start, end, and positive sampling interval.', true);
+        const times = []; for (let time = rangeStart; time < rangeEnd - 0.0001; time += interval) times.push(Number(time.toFixed(4))); if (!times.length || times.at(-1) !== rangeEnd) times.push(rangeEnd);
+        if (times.length > 150) return setStatus(`That selection would create ${times.length} frames. Increase the interval or shorten the range (maximum 150).`, true);
+        analyze.disabled = true; const priorTime = video.currentTime; const samples = []; let previousPixels;
+        try {
+          for (let index = 0; index < times.length; index++) { setStatus(`Sampling frame ${index + 1} of ${times.length} at ${formatTime(times[index])}…`); await waitForSeek(times[index]); const frame = captureFrame(); const score = difference(frame.pixels, previousPixels); previousPixels = frame.pixels; samples.push({ time:times[index], image:frame.image, score, hot:score >= limit }); }
+          const peak = Math.max(...samples.map(sample => sample.score)); document.querySelector('#sampleCount').textContent = samples.length; document.querySelector('#peakChange').textContent = peak.toFixed(3); document.querySelector('#hotCount').textContent = samples.filter(sample => sample.hot).length;
+          results.hidden = false; frameSection.hidden = false; showFrames(samples); drawTimeline(samples); setStatus(`Finished: ${samples.length} frames sampled from ${formatTime(rangeStart)} to ${formatTime(rangeEnd)}.`); video.currentTime = priorTime;
+        } catch (error) { setStatus(error.message, true); } finally { analyze.disabled = false; }
+      });
+      window.addEventListener('resize', () => { if (!results.hidden) { /* Redrawn on the next analysis to preserve the captured result. */ } });
+    })();
+  </script>
 </body>
 </html>
