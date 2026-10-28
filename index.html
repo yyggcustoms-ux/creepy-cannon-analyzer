@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Creepy Cannon Offline Analyzer</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#151d31;--line:#2b3650;--text:#f3f6ff;--muted:#aab5cf;--accent:#8ab4ff;--good:#a8e6bf}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#111a31,#0b1020 360px);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:760px;margin:auto;padding:20px 14px 48px}
+header{padding:10px 2px 18px}
+h1{font-size:1.55rem;line-height:1.2;margin:0 0 8px}
+h2{font-size:1.08rem;margin:0 0 12px}
+p{margin:7px 0;color:var(--muted)}
+.card{background:rgba(21,29,49,.96);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 8px 24px #0002}
+label{display:block;font-weight:650;margin:12px 0 6px}
+input,select,button{font:inherit}
+input[type=file],input[type=number],select{width:100%;padding:12px;background:#0c1428;color:var(--text);border:1px solid #3a4868;border-radius:11px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+button{border:0;border-radius:12px;padding:13px 16px;background:var(--accent);color:#071329;font-weight:750;width:100%;margin-top:12px}
+button:disabled{opacity:.45}
+.secondary{background:#27344f;color:var(--text);border:1px solid #425171}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stat{background:#0c1428;border:1px solid var(--line);border-radius:12px;padding:12px}
+.stat strong{display:block;font-size:1.2rem}
+.small{font-size:.88rem;color:var(--muted)}
+#status{white-space:pre-wrap;color:var(--good);font-size:.94rem}
+#preview{width:100%;max-height:360px;object-fit:contain;background:#05070d;border-radius:12px;margin-top:10px}
+#results{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:9px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted)}
+.pill{display:inline-block;padding:4px 9px;border-radius:99px;background:#263657;color:#dbe8ff;font-size:.82rem}
+footer{font-size:.85rem;color:var(--muted);padding:12px 2px}
+@media(min-width:600px){.statgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="pill">Offline video analysis</div>
+  <h1>Creepy Cannon Analyzer</h1>
+  <p>Analyze a saved recording in Safari. The video stays on your device; this page does not upload it anywhere.</p>
+</header>
+
+<section class="card">
+<h2>1. Choose your recording</h2>
+<label for="videoFile">Video file (MP4 or MOV)</label>
+<input id="videoFile" type="file" accept="video/mp4,video/quicktime,video/*">
+<div id="fileInfo" class="small">No video selected.</div>
+<video id="preview" controls playsinline hidden></video>
+<div class="row">
+  <div>
+    <label for="interval">Sample every (seconds)</label>
+    <select id="interval">
+      <option value="0.25">0.25 — detailed, slower</option>
+      <option value="0.5" selected>0.5 — balanced</option>
+      <option value="1">1 — faster</option>
+      <option value="2">2 — quickest</option>
+    </select>
+  </div>
+  <div>
+    <label for="sensitivity">Change sensitivity</label>
+    <select id="sensitivity">
+      <option value="8">Low (fewer changes)</option>
+      <option value="14" selected>Medium</option>
+      <option value="22">High (more changes)</option>
+    </select>
+  </div>
+</div>
+<label for="startAt">Start at (seconds)</label>
+<input id="startAt" type="number" min="0" step="0.5" value="0">
+<label for="endAt">End at (seconds; blank = end)</label>
+<input id="endAt" type="number" min="0" step="0.5" placeholder="Video end">
+<p class="small">Tip: For a long recording, analyze a smaller time range first to keep Safari responsive.</p>
+<button id="analyze" disabled>Analyze recording</button>
+<div id="status" role="status" aria-live="polite"></div>
+</section>
+
+<section class="card" id="summaryCard" hidden>
+<h2>2. Analysis summary</h2>
+<div class="statgrid">
+ <div class="stat"><span class="small">Duration</span><strong id="durationStat">—</strong></div>
+ <div class="stat"><span class="small">Samples checked</span><strong id="samplesStat">—</strong></div>
+ <div class="stat"><span class="small">Biggest visual change</span><strong id="biggestStat">—</strong></div>
+ <div class="stat"><span class="small">High-change moments</span><strong id="eventsStat">—</strong></div>
+</div>
+<p id="summaryNote" class="small"></p>
+<button id="downloadCsv" class="secondary">Export results as CSV</button>
+</section>
+
+<section class="card" id="resultsCard" hidden>
+<h2>3. Timeline</h2>
+<p class="small">“Change score” estimates how much the sampled image differs from the previous sample. High values can indicate a scene transition, animation, or gameplay movement—not necessarily a round ending.</p>
+<div id="results"></div>
+</section>
+
+<footer>
+This is an offline visual-change analyzer, not a gameplay bot. It does not tap, fire, or control the game. Results depend on video quality and sampling interval. If Safari runs low on memory, choose a shorter time range or a larger interval.
+</footer>
+</main>
+<canvas id="canvas" width="240" height="320" hidden></canvas>
+<script>
+(() => {
+ const $ = id => document.getElementById(id);
+ const fileInput=$('videoFile'), video=$('preview'), canvas=$('canvas'), ctx=canvas.getContext('2d',{willReadFrequently:true});
+ let objectUrl=null, rows=[], running=false;
+ const fmt=t=>{if(!Number.isFinite(t))return '—';const m=Math.floor(t/60),s=(t%60).toFixed(2).padStart(5,'0');return `${m}:${s}`};
+ function setStatus(s){$('status').textContent=s}
+ function waitEvent(el,event){return new Promise((resolve,reject)=>{const ok=()=>{clean();resolve()};const bad=()=>{clean();reject(new Error('The browser could not read this video. Try an MP4 or MOV file.'))};const clean=()=>{el.removeEventListener(event,ok);el.removeEventListener('error',bad)};el.addEventListener(event,ok,{once:true});el.addEventListener('error',bad,{once:true})})}
+ fileInput.addEventListener('change', async()=>{
+  rows=[];$('summaryCard').hidden=true;$('resultsCard').hidden=true;$('analyze').disabled=true;
+  if(objectUrl)URL.revokeObjectURL(objectUrl);
+  const file=fileInput.files?.[0];if(!file){$('fileInfo').textContent='No video selected.';video.hidden=true;return}
+  objectUrl=URL.createObjectURL(file);video.src=objectUrl;video.hidden=false;
+  $('fileInfo').textContent=`${file.name} · ${(file.size/1024/1024).toFixed(1)} MB`;
+  setStatus('Loading video metadata…');
+  try{if(video.readyState<1)await waitEvent(video,'loadedmetadata');$('fileInfo').textContent+=` · ${fmt(video.duration)} long`; $('endAt').placeholder=`${video.duration.toFixed(1)} (video end)`;$('startAt').max=video.duration;$('endAt').max=video.duration;$('analyze').disabled=false;setStatus('Ready. Choose a time range and analyze.')}
+  catch(e){setStatus(e.message)}
+ });
+ async function seek(t){
+  if(Math.abs(video.currentTime-t)<0.025 && video.readyState>=2)return;
+  const p=waitEvent(video,'seeked');video.currentTime=t;await p;
+ }
+ function getGray(){
+  const w=canvas.width,h=canvas.height;
+  ctx.drawImage(video,0,0,w,h);
+  const d=ctx.getImageData(0,0,w,h).data, gray=new Uint8Array(w*h);
+  for(let i=0,j=0;i<d.length;i+=4,j++)gray[j]=(d[i]*3+d[i+1]*6+d[i+2])/10;
+  return gray;
+ }
+ function difference(a,b){let sum=0;for(let i=0;i<a.length;i++)sum+=Math.abs(a[i]-b[i]);return sum/a.length}
+ function csvEscape(v){return '"'+String(v).replaceAll('"','""')+'"'}
+ $('analyze').addEventListener('click', async()=>{
+  if(running||!video.duration)return;
+  running=true;$('analyze').disabled=true;$('summaryCard').hidden=true;$('resultsCard').hidden=true;rows=[];
+  try{
+   const step=Number($('interval').value), sens=Number($('sensitivity').value);
+   const start=Math.max(0,Number($('startAt').value)||0);
+   const endInput=$('endAt').value.trim();const end=Math.min(video.duration,endInput===''?video.duration:Number(endInput));
+   if(end<=start)throw new Error('End time must be after start time.');
+   const count=Math.floor((end-start)/step)+1;
+   if(count>1800)throw new Error('That range creates too many samples. Choose a shorter range or larger interval (maximum 1,800 samples).');
+   canvas.width=240;canvas.height=320;
+   let previous=null;
+   for(let i=0;i<count;i++){
+    const t=Math.min(end,start+i*step);
+    await seek(t);
+    const gray=getGray();
+    const score=previous?difference(previous,gray):0;
+    rows.push({seconds:Number(t.toFixed(3)),timestamp:fmt(t),change_score:Number(score.toFixed(3)),high_change:score>=sens?'YES':'NO'});
+    previous=gray;
+    if(i%4===0||i===count-1){setStatus(`Analyzing… ${i+1} / ${count} samples (${Math.round((i+1)/count*100)}%)`);await new Promise(r=>setTimeout(r,0))}
+   }
+   const biggest=rows.reduce((best,r)=>r.change_score>best.change_score?r:best,rows[0]);
+   const events=rows.filter(r=>r.change_score>=sens);
+   $('durationStat').textContent=fmt(end-start);$('samplesStat').textContent=rows.length.toLocaleString();
+   $('biggestStat').textContent=`${biggest.timestamp} (${biggest.change_score})`;$('eventsStat').textContent=events.length.toLocaleString();
+   $('summaryNote').textContent=`Sensitivity threshold: ${sens}. These are visual-change estimates, not confirmed round transitions.`;
+   $('summaryCard').hidden=false;$('resultsCard').hidden=false;renderTable(rows);
+   setStatus('Analysis complete. You can export the timeline as CSV.');
+  }catch(e){setStatus(e.message||String(e))}
+  finally{running=false;$('analyze').disabled=false}
+ });
+ function renderTable(data){
+  const show=data.length>240?data.filter((r,i)=>i%Math.ceil(data.length/240)===0||r.high_change==='YES'):data;
+  let html='<table><thead><tr><th>Time</th><th>Change score</th><th>High change?</th></tr></thead><tbody>';
+  for(const r of show)html+=`<tr><td>${r.timestamp}</td><td>${r.change_score.toFixed(3)}</td><td>${r.high_change}</td></tr>`;
+  html+='</tbody></table>';
+  if(show.length<data.length)html+=`<p class="small">Showing ${show.length} representative rows of ${data.length}. The CSV contains every sample.</p>`;
+  $('results').innerHTML=html;
+ }
+ $('downloadCsv').addEventListener('click',()=>{
+  if(!rows.length)return;
+  const lines=['seconds,timestamp,change_score,high_change',...rows.map(r=>[r.seconds,r.timestamp,r.change_score,r.high_change].map(csvEscape).join(','))];
+  const blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='creepy-cannon-analysis.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ });
+})();
+</script>
+</body>
+</html>
